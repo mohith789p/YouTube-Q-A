@@ -109,14 +109,39 @@ def is_video_ingested(collection_name: str) -> bool:
 
 
 def fetch_transcript_documents(video_id: str) -> List[Dict[str, str | float]]:
-    """Fetch raw timed transcript segments using youtube-transcript-api."""
+    """Fetch raw timed transcript segments using youtube-transcript-api v1.2.4."""
+    api = YouTubeTranscriptApi()
     try:
-        return YouTubeTranscriptApi().fetch(video_id, languages=["en"])
+        fetched_transcript = api.fetch(video_id, languages=["en", "en-US", "en-GB"])
+        return fetched_transcript.to_raw_data()
     except (TranscriptsDisabled, NoTranscriptFound):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No English captions or subtitles available for this video.",
-        )
+        try:
+            transcript_list = api.list(video_id)
+            try:
+                transcript = transcript_list.find_transcript(["en", "en-US", "en-GB"])
+            except Exception:
+                transcript = transcript_list.find_generated_transcript(["en", "en-US", "en-GB"])
+            return transcript.fetch().to_raw_data()
+        except (TranscriptsDisabled, NoTranscriptFound):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No English captions or subtitles available for this video.",
+            )
+        except (IpBlocked, RequestBlocked):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="YouTube blocked automated transcript requests on cloud datacenter IPs. Please try another video.",
+            )
+        except PoTokenRequired:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="YouTube requires Proof-of-Origin (PoToken) verification token.",
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to extract transcript: {str(e)}",
+            )
     except VideoUnavailable:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -125,19 +150,20 @@ def fetch_transcript_documents(video_id: str) -> List[Dict[str, str | float]]:
     except (IpBlocked, RequestBlocked):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="YouTube blocked transcript requests from datacenter IPs. Please try another video.",
+            detail="YouTube blocked automated transcript requests on cloud datacenter IPs. Please try another video.",
         )
     except PoTokenRequired:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="YouTube requires a Proof-of-Origin (PoToken) verification token.",
+            detail="YouTube requires Proof-of-Origin (PoToken) verification token.",
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to extract transcript: {str(e)}",
         )
-        
+
+
 def process_video_transcript(raw_url: str) -> IngestResponse:
     video_id = get_video_id(raw_url)
     video_title = get_video_title(raw_url)
@@ -156,8 +182,13 @@ def process_video_transcript(raw_url: str) -> IngestResponse:
     # 2. Extract timed captions
     raw_segments = fetch_transcript_documents(video_id)
 
-    # Build LangChain Document objects while maintaining timestamp metadata
-    text = " ".join([item.text for item in raw_segments])
+    # Safely extract text whether segment is a dict or a snippet object
+    def get_text(item) -> str:
+        if isinstance(item, dict):
+            return str(item.get("text", ""))
+        return str(getattr(item, "text", ""))
+
+    text = " ".join([get_text(item) for item in raw_segments if get_text(item)])
 
     # 3. Chunk documents
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
