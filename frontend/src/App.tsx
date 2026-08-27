@@ -142,7 +142,7 @@ export const App = () => {
         />
       ) : (
         <ChatInterface
-          videoTitle={activeVideoTitle}
+          videoTitle={activeVideoTitle ?? undefined}
           onSendMessage={sendMessage}
           messages={messages}
           isGenerating={isGenerating}
