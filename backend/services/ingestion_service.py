@@ -45,18 +45,14 @@ def get_video_title(url: str) -> str:
                 "url": url,
                 "format": "json"
             },
+            headers={"User-Agent": "Mozilla/5.0"},
             timeout=10
         )
-
-        response.raise_for_status()
-
-        return response.json()["title"]
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to extract video title: {str(e)}",
-        )
+        if response.status_code == 200:
+            return response.json().get("title", "YouTube Video")
+    except Exception:
+        pass
+    return "YouTube Video"
 
 def get_video_id(url: str) -> str:
     parsed_url = urlparse(url)

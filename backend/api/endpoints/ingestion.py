@@ -24,6 +24,8 @@ async def ingest_transcript(payload: IngestRequest) -> IngestResponse:
         raise
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         # Fallback catch for unexpected unhandled runtime errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
