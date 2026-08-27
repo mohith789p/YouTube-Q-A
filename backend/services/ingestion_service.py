@@ -111,42 +111,33 @@ def is_video_ingested(collection_name: str) -> bool:
 def fetch_transcript_documents(video_id: str) -> List[Dict[str, str | float]]:
     """Fetch raw timed transcript segments using youtube-transcript-api."""
     try:
-        return YouTubeTranscriptApi.get_transcript(video_id, languages=["en", "en-US", "en-GB"])
-    except Exception:
-        try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            try:
-                transcript = transcript_list.find_transcript(["en", "en-US", "en-GB"])
-            except Exception:
-                transcript = transcript_list.find_generated_transcript(["en", "en-US", "en-GB"])
-            return transcript.fetch()
-        except (TranscriptsDisabled, NoTranscriptFound):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No English captions or subtitles available for this video.",
-            )
-        except VideoUnavailable:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="The requested YouTube video is unavailable.",
-            )
-        except (IpBlocked, RequestBlocked):
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="YouTube blocked transcript requests from datacenter IPs. Please try another video.",
-            )
-        except PoTokenRequired:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="YouTube requires a Proof-of-Origin (PoToken) verification token.",
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to extract transcript: {str(e)}",
-            )
-
-
+        return YouTubeTranscriptApi().fetch(video_id, languages=["en"])
+    except (TranscriptsDisabled, NoTranscriptFound):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No English captions or subtitles available for this video.",
+        )
+    except VideoUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The requested YouTube video is unavailable.",
+        )
+    except (IpBlocked, RequestBlocked):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="YouTube blocked transcript requests from datacenter IPs. Please try another video.",
+        )
+    except PoTokenRequired:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="YouTube requires a Proof-of-Origin (PoToken) verification token.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to extract transcript: {str(e)}",
+        )
+        
 def process_video_transcript(raw_url: str) -> IngestResponse:
     video_id = get_video_id(raw_url)
     video_title = get_video_title(raw_url)

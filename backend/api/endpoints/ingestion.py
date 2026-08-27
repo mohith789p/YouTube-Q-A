@@ -19,8 +19,8 @@ async def ingest_transcript(payload: IngestRequest) -> IngestResponse:
             process_video_transcript, str(payload.url)
         )
 
-    except HTTPException:
-        # Re-raise standard HTTP exceptions explicitly raised downstream (e.g., 400, 404, 530)
+    except HTTPException as e:
+        print(f"[Ingest Error] {e.status_code}: {e.detail}", flush=True)
         raise
 
     except Exception as e:
