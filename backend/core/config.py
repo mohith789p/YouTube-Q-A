@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     DESCRIPTION: str = "Backend service for YouTube video transcript processing and RAG chat."
     
     GOOGLE_API_KEY: str = ""
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
     GEMINI_MODEL: str = "gemini-2.5-flash"
     CHROMA_PERSIST_DIR: str = "./database/chroma_db"
     
