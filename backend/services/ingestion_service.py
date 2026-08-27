@@ -23,6 +23,20 @@ from schemas.ingestion import IngestResponse
 
 VIDEO_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 
+QUOTA_THRESHOLDS = {
+    "gemini_embedding": {
+        "rpm": 80,
+        "tpm": 24_000,
+        "rpd": 800,
+    },
+
+    "gemini_flash": {
+        "rpm": 4,
+        "tpm": 200_000,
+        "rpd": 16,
+    },
+}
+
 def get_video_title(url: str) -> str:
     try:
         response = requests.get(
@@ -153,6 +167,18 @@ def process_video_transcript(raw_url: str) -> IngestResponse:
     # 3. Chunk documents
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_text(text)
+
+    # Check len of chunks and enforce Gemini API rate limiting thresholds
+    # 1000 characters per chunk corresponds to ~250 tokens per chunk
+    max_chunks_by_tpm = QUOTA_THRESHOLDS["gemini_embedding"]["tpm"] // 250
+    max_chunks_by_rpd = QUOTA_THRESHOLDS["gemini_embedding"]["rpd"]
+    max_allowed_chunks = min(max_chunks_by_tpm, max_chunks_by_rpd)
+
+    if len(chunks) > max_allowed_chunks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Video transcript is too long. Please retry with a shorter video.",
+        )
 
     docs = [
         Document(

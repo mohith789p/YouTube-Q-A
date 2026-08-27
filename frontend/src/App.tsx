@@ -15,6 +15,8 @@ interface ChatResponse {
   sources: string[];
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export const App = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export const App = () => {
 
     try {
       const response = await axios.post<IngestResponse>(
-        'http://localhost:8000/api/v1/ingest',
+        `${API_BASE_URL}/api/v1/ingest`,
         { url },
         {
           headers: { 'Content-Type': 'application/json' },
@@ -80,7 +82,7 @@ export const App = () => {
     try {
 
       const response = await axios.post<ChatResponse>(
-        'http://localhost:8000/api/v1/chat',
+        `${API_BASE_URL}/api/v1/chat`,
         {
           video_id: activeVideoId,
           message: message,
